@@ -41,8 +41,15 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'tasks',
+    'tasks.apps.TasksConfig',
+    'django_apscheduler',
 ]
+
+SCHEDULER_JOBSTORES = {
+    'default': {
+        'ENGINE': 'django_apscheduler.jobstores:DjangoJobStore',
+    },
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -110,7 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = 'America/Sao_Paulo'
 
 USE_I18N = True
 

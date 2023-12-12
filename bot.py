@@ -2,9 +2,9 @@ import os
 import logging
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime
 
 load_dotenv()
 
@@ -33,7 +33,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
         task = ' '.join(context.args[:-2])
         deadline = datetime.strptime(date_with_time, "%Y-%m-%d %H:%M")
     except ValueError:
-        await update.message.reply_text("Invalid format. Please use: /addtask Buy groceries 2023-01-01 15:30")
+        await update.message.reply_text("Invalid format. Please use: /add_task Buy groceries 2023-01-01 15:30")
         return
 
     # Send task data to DRF API
@@ -45,7 +45,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     payload = {
         'task_name': task,
         'deadline': deadline.isoformat(),
-        'user': str(update.effective_user.id),
+        'user': update.effective_user.id,
     }
 
     try:
@@ -65,7 +65,7 @@ async def tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Define parameters for filtering tasks per user
     params = {
-        'user': str(update.effective_user.id),
+        'user': update.effective_user.id,
     }
 
     try:
@@ -86,7 +86,7 @@ async def tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def task(update, context):
     params = {
-        'user': str(update.effective_user.id),
+        'user': update.effective_user.id,
     }
     task_id = context.args[0]
     api_url = f"{os.getenv('DRF_API_URL')}{task_id}/"
@@ -108,13 +108,13 @@ async def task(update, context):
 
 async def update_task(update, context):
     params = {
-        'user': str(update.effective_user.id),
+        'user': update.effective_user.id,
     }
     task_id = context.args[0]
     new_name = ' '.join(context.args[1:-2])
     new_date = ' '.join(context.args[-2:])
     data = {
-        'user': str(update.effective_user.id), "task_name": new_name, "deadline": new_date
+        'user': update.effective_user.id, "task_name": new_name, "deadline": new_date
     }
     api_url = f"{os.getenv('DRF_API_URL')}{task_id}/"
     if not api_url:
@@ -125,12 +125,12 @@ async def update_task(update, context):
         if response.json()['detail']:
             await update.message.reply_text('Permission denied.')
     except KeyError:
-        await update.message.reply_text('Task updated successfuly.')
+        await update.message.reply_text('Task updated successfully.')
 
 
 async def finish_task(update, context):
     params = {
-        'user': str(update.effective_user.id),
+        'user': update.effective_user.id,
     }
     task_id = context.args[0]
     api_url = f"{os.getenv('DRF_API_URL')}{task_id}/"
@@ -144,19 +144,49 @@ async def finish_task(update, context):
             await update.message.reply_text('Permission denied.')
     except KeyError:
         if data['finished']:
-            await update.message.reply_text('Task completed successfuly.')
+            await update.message.reply_text('Task completed successfully.')
         else:
-            await update.message.reply_text('Task uncompleted successfuly.')
+            await update.message.reply_text('Task uncompleted successfully.')
+
+
+async def commands(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Explanation of all available commands
+    explanation = (
+        "/start - Start the bot and receive a welcome message.\n"
+        "/add_task <task_description> <deadline> - Add a new task with a deadline (e.g., /add_task Buy groceries 2023-01-01 15:30).\n"
+        "/tasks - Retrieve the list of unfinished tasks.\n"
+        "/task <task_id> - Retrieve details about a specific task.\n"
+        "/update_task <task_id> <new_description> <new_deadline> - Update a task's description and deadline.\n"
+        "/finish_task <task_id> - Finish a task and mark it as completed."
+    )
+    await update.message.reply_text(explanation)
+
+
+async def filler_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("I don't recognize your command. See /commands for the list of available commands.")
+
+
+async def unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # Check if message is in a private chat and not a command
+    if update.message.chat.type == 'private' and not update.message.text.startswith('/'):
+        await update.message.reply_text("I don't recognize your command. See /commands for the list of available commands.")
+
 
 if __name__ == '__main__':
     application = ApplicationBuilder().token(os.getenv('BOT_TOKEN')).build()
 
     start_handler = CommandHandler('start', start)
-    add_task_handler = CommandHandler('addtask', add_task)
+    add_task_handler = CommandHandler('add_task', add_task)
     task_list_handler = CommandHandler('tasks', tasks)
     task_retrieve_handler = CommandHandler('task', task)
     task_update_handler = CommandHandler('update_task', update_task)
     task_finish_handler = CommandHandler('finish_task', finish_task)
+    commands_handler = CommandHandler('commands', commands)
+    filler_command_handler = MessageHandler(filters.Regex(r'/.*'), filler_command)
+    unknown_message_handler = MessageHandler(filters.ChatType.PRIVATE & ~filters.Command(), unknown_message)
+
+
+
 
     application.add_handler(start_handler)
     application.add_handler(add_task_handler)
@@ -164,5 +194,9 @@ if __name__ == '__main__':
     application.add_handler(task_retrieve_handler)
     application.add_handler(task_update_handler)
     application.add_handler(task_finish_handler)
+    application.add_handler(commands_handler)
+    application.add_handler(filler_command_handler)
+    application.add_handler(unknown_message_handler)
+    
 
     application.run_polling()

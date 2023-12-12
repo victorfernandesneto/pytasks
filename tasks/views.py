@@ -27,7 +27,7 @@ class RetrieveUpdateDestroyTaskView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.query_params.get('user', None)
         instance = self.get_object()
 
-        if instance.user != user:
+        if str(instance.user) != str(user):
             raise PermissionDenied("Permission denied.")
 
         serializer = self.get_serializer(instance)
@@ -38,7 +38,7 @@ class RetrieveUpdateDestroyTaskView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.query_params.get('user', None)
         instance = self.get_object()
 
-        if instance.user != user:
+        if str(instance.user) != str(user):
             raise PermissionDenied("Permission denied.")
 
         serializer.save()
@@ -48,7 +48,7 @@ class RetrieveUpdateDestroyTaskView(generics.RetrieveUpdateDestroyAPIView):
         user = self.request.query_params.get('user', None)
         instance = self.get_object()
 
-        if instance.user != user:
+        if str(instance.user) != str(user):
             raise PermissionDenied("Permission denied.")
 
         instance.finished = not instance.finished
