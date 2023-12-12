@@ -1,17 +1,17 @@
 import os
-import logging
 from dotenv import load_dotenv
 from telegram import Update
-from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+from telegram.ext import ContextTypes
 import requests
 from datetime import datetime
 
+
 load_dotenv()
 
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+token = os.getenv('JWT_TOKEN')
+headers = {
+        'Authorization': f'Bearer {token}',
+    }
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -49,7 +49,7 @@ async def add_task(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     try:
-        response = requests.post(api_url, json=payload)
+        response = requests.post(api_url, json=payload, headers=headers)
         response.raise_for_status()
         await update.message.reply_text("Task added successfully!")
     except requests.RequestException as e:
@@ -69,7 +69,7 @@ async def tasks(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     try:
-        response = requests.get(api_url, params=params)
+        response = requests.get(api_url, params=params, headers=headers)
         response.raise_for_status()
         tasks_data = response.json()
 
@@ -94,7 +94,7 @@ async def task(update, context):
         await update.message.reply_text("DRF_API_URL is not configured.")
         return
     try:
-        response = requests.get(api_url, params=params)
+        response = requests.get(api_url, params=params, headers=headers)
         task_data = response.json()
     except requests.RequestException as e:
         await update.message.reply_text(f"Failed to retrieve tasks. Error: {str(e)}")
@@ -120,7 +120,7 @@ async def update_task(update, context):
     if not api_url:
         await update.message.reply_text("DRF_API_URL is not configured.")
         return
-    response = requests.put(api_url, json=data, params=params)
+    response = requests.put(api_url, json=data, params=params, headers=headers)
     try:
         if response.json()['detail']:
             await update.message.reply_text('Permission denied.')
@@ -137,7 +137,7 @@ async def finish_task(update, context):
     if not api_url:
         await update.message.reply_text("DRF_API_URL is not configured.")
         return
-    response = requests.delete(api_url, params=params)
+    response = requests.delete(api_url, params=params, headers=headers)
     data = response.json()
     try:
         if data['detail']:
@@ -170,33 +170,3 @@ async def unknown_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Check if message is in a private chat and not a command
     if update.message.chat.type == 'private' and not update.message.text.startswith('/'):
         await update.message.reply_text("I don't recognize your command. See /commands for the list of available commands.")
-
-
-if __name__ == '__main__':
-    application = ApplicationBuilder().token(os.getenv('BOT_TOKEN')).build()
-
-    start_handler = CommandHandler('start', start)
-    add_task_handler = CommandHandler('add_task', add_task)
-    task_list_handler = CommandHandler('tasks', tasks)
-    task_retrieve_handler = CommandHandler('task', task)
-    task_update_handler = CommandHandler('update_task', update_task)
-    task_finish_handler = CommandHandler('finish_task', finish_task)
-    commands_handler = CommandHandler('commands', commands)
-    filler_command_handler = MessageHandler(filters.Regex(r'/.*'), filler_command)
-    unknown_message_handler = MessageHandler(filters.ChatType.PRIVATE & ~filters.Command(), unknown_message)
-
-
-
-
-    application.add_handler(start_handler)
-    application.add_handler(add_task_handler)
-    application.add_handler(task_list_handler)
-    application.add_handler(task_retrieve_handler)
-    application.add_handler(task_update_handler)
-    application.add_handler(task_finish_handler)
-    application.add_handler(commands_handler)
-    application.add_handler(filler_command_handler)
-    application.add_handler(unknown_message_handler)
-    
-
-    application.run_polling()

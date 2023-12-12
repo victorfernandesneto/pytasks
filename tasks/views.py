@@ -1,4 +1,5 @@
 from rest_framework import generics
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from tasks.models import Task
@@ -8,6 +9,7 @@ import datetime
 
 class ListCreateTaskView(generics.ListCreateAPIView):
     serializer_class = TaskSerializer
+    permission_classes = (IsAuthenticated,)
 
     def get_queryset(self):
         queryset = Task.objects.all()
@@ -22,6 +24,7 @@ class ListCreateTaskView(generics.ListCreateAPIView):
 class RetrieveUpdateDestroyTaskView(generics.RetrieveUpdateDestroyAPIView):
     queryset = Task.objects.all()
     serializer_class = TaskSerializer
+    permission_classes = (IsAuthenticated,)
 
     def get(self, request, *args, **kwargs):
         user = self.request.query_params.get('user', None)
